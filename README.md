@@ -1,6 +1,6 @@
 # SCCNH Hillclimb LiveTiming
 
-The goal of this Python script is to ingest live timing data and output files that can be hosted in an S3 bucket. This allows dirvers and spectators to know how participants are doing throughout the day.
+The goal of this Python script is to ingest live timing data and output files that can be hosted in an S3 bucket. This allows drivers and spectators to know how participants are doing throughout the day.
 
 ## Installation
 
@@ -8,7 +8,7 @@ Python 3.6 or higher is required to be installed. The script is tested with pyth
 
 pip install -r requirements.txt
 
-## Useage
+## Usage
 
 Run the script interactively via command line
 

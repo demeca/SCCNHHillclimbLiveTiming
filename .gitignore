@@ -3,6 +3,7 @@ htiming_venv
 .vscode
 Events
 notes.txt
+config.py
 
 # Generated Files
 HTML/class

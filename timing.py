@@ -14,6 +14,7 @@ Options:
 import os
 import glob
 import sqlite3
+import config
 from collections import defaultdict
 from datetime import date, timedelta, time
 from docopt import docopt
@@ -21,8 +22,7 @@ from dateutil import parser
 
 # Get info from enviroment
 
-# TODO Ask for file location 
-fileLocation = r"./Events"
+fileLocation = config.eventPath
 # Get file list from directory
 fileList = os.listdir(fileLocation)
 # Events have predictable filenames in our software
@@ -308,6 +308,8 @@ def create_class_html_files(classRuns, entries):
 if __name__ == '__main__':
     opts = docopt(__doc__, version="1.0")
     pick = None
+    if config.eventNumber:
+        pick = config.eventNumber
     if opts.get('--event'):
         pick = opts.get('--event')
     event = pick_event(eventList, pick)
