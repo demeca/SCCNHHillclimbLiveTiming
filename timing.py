@@ -9,12 +9,14 @@ Options:
     --version               Show version
     -d, --dir               Enter an event directory
     -e INT, --event INT     Enter an event number
+    -f, --force             Force an update
+    -l, --latest            Use last edited event file as input
 """
 
 import os
 import glob
 import sqlite3
-import config
+from config import config
 from collections import defaultdict
 from datetime import date, timedelta, time, datetime
 from docopt import docopt
@@ -22,8 +24,8 @@ from dateutil import parser
 
 # Get info from enviroment
 
-fileLocation = config.eventPath
-outDir = config.outDir
+fileLocation = config.get("eventPath")
+outDir = config.get("outDir")
 # Get file list from directory
 fileList = os.listdir(fileLocation)
 # Events have predictable filenames in our software
@@ -307,8 +309,9 @@ def create_class_html_files(classRuns, entries):
 
 # Update AWS Bucket using the AWS CLI
 def trigger_s3_upload():
-    cmd = f'aws s3 sync s3://source-bucket/ {config.outDir}'
+    cmd = config["AWSCommand"]
     os.system(cmd)
+    # TODO provide feedback of command state
 
 def check_for_update(event):
     try:
@@ -337,18 +340,27 @@ def check_for_update(event):
     return False
 
 
+def get_latest_file():
+
+    list_of_files = glob.glob(fileLocation + "/*Ex.scdb")
+    latest_file = max(list_of_files, key=os.path.getmtime)
+    return os.path.basename(latest_file)[:8]
     
 
 if __name__ == '__main__':
     opts = docopt(__doc__, version="1.0")
     pick = None
-    if config.eventNumber:
-        pick = config.eventNumber
+    event = None
+    if config.get("eventNumber", None):
+        pick = config.get("eventNumber")
     if opts.get('--event'):
         pick = opts.get('--event')
-    event = pick_event(eventList, pick)
+    if opts.get('--latest'):
+        event = get_latest_file()
+    if not event:
+        event = pick_event(eventList, pick)
     if event:
-        if check_for_update(event):
+        if check_for_update(event) or opts.get('--force'):
             eventFile = fileLocation + "/" + event + ".scdb"
             timesFile = fileLocation + "/" + event + "Ex.scdb"
             eventInfo = get_event_info(eventFile)
@@ -392,6 +404,3 @@ if __name__ == '__main__':
             create_homepage(list(entries.values()), eventInfo)
             trigger_s3_upload
 
-
-#save last update time from file
-#compare every 1:00
