@@ -1,3 +1,15 @@
+# IDE Setup
+htiming_venv
+.vscode
+Events
+notes.txt
+
+# Generated Files
+HTML/class
+HTML/heats
+HTML/static
+HTML/index.html
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
