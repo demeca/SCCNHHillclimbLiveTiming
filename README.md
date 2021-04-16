@@ -21,3 +21,9 @@ If you know what event you want to serve pass it on the command line with the -e
 ```
 python timing.py -e 3
 ```
+
+If you just want to use the last modified event, use the --latest, -l option. This will often be your easiest option for automation.
+
+```
+python timing.py -l
+```
