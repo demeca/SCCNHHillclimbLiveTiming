@@ -16,13 +16,14 @@ import glob
 import sqlite3
 import config
 from collections import defaultdict
-from datetime import date, timedelta, time
+from datetime import date, timedelta, time, datetime
 from docopt import docopt
 from dateutil import parser
 
 # Get info from enviroment
 
 fileLocation = config.eventPath
+outDir = config.outDir
 # Get file list from directory
 fileList = os.listdir(fileLocation)
 # Events have predictable filenames in our software
@@ -34,10 +35,10 @@ eventList = list(set(eventList))
 eventList.sort()
 
 #get header and footer
-headFile = open("HTML/basehtmlHeader.html", "r")
+headFile = open(f"{outDir}/basehtmlHeader.html", "r")
 htmlHeader = headFile.read()
 headFile.close()
-footFile = open("HTML/basehtmlfooter.html", "r")
+footFile = open(f"{outDir}/basehtmlfooter.html", "r")
 htmlFooter = footFile.read()
 footFile.close()
 
@@ -134,12 +135,13 @@ def get_heatlist_and_times(eventSQLFile):
 # Create homepage with overall ranking
 def create_homepage(entries, eventInfo):
     heatList = f"""
-        <h1>SCCNH Livetiming</h1>
+        <h1>SCCNH Livetiming</h1><h4>**ALL TIMES UNOFFICAL**</h4>
         <h1>Event: {eventInfo['TITLE1']}</h1>
         <h2>{eventInfo['TITLE2']}</h2>
         <h4>Location: {eventInfo['LOCATION']}</h4><h4> Date: {eventInfo['DATE']}</h4>
+        <p>Updated: {datetime.now().strftime("%B %d, %Y %I:%M%p")}</p>
         """
-    heatFiles = glob.glob('HTML/heats/Heat*.html')
+    heatFiles = glob.glob(f'{outDir}/heats/Heat*.html')
     heats = [[int(os.path.basename(f)[:-5][4:]), "heats/" + os.path.basename(f)] for f in heatFiles]
     heats.sort(key=lambda x: x[0])
     entries.sort(key=lambda x: x.get('BEST', timedelta(seconds=999999999999)))
@@ -149,7 +151,7 @@ def create_homepage(entries, eventInfo):
 
     heatList += "<br/ ><br /><h2>All Runs by Class</h2>"
 
-    classFiles = glob.glob('HTML/class/C-*.html')
+    classFiles = glob.glob(f'{outDir}/class/C-*.html')
     cClass = [[os.path.basename(f)[:-5][2:], "class/" + os.path.basename(f)] for f in classFiles]
     cClass.sort(key=lambda x: x[0])
     for c in cClass:
@@ -184,7 +186,7 @@ def create_homepage(entries, eventInfo):
     
     heatList +="</tbody></table>"
     #output file
-    outFile = open(f"HTML/index.html", "w")
+    outFile = open(f"{outDir}/index.html", "w")
     outFile.write(htmlHeader)
     outFile.write(heatList)
     outFile.write(htmlFooter)
@@ -231,14 +233,14 @@ def create_heat_html_files(heatNum, runs, entries):
             </tr>"""
     runTable += "</tbody></table>"
     #output file
-    outFile = open(f"HTML/heats/Heat{heatNum}.html", "w")
+    outFile = open(f"{outDir}/heats/Heat{heatNum}.html", "w")
     outFile.write(htmlHeader)
     outFile.write(runTable)
     outFile.write(htmlFooter)
     outFile.close()
 
 def clean_heat_folder():
-    files = glob.glob('HTML/heats/Heat*.html')
+    files = glob.glob(f'{outDir}/heats/Heat*.html')
     for f in files:
         try:
             os.remove(f)
@@ -246,7 +248,7 @@ def clean_heat_folder():
             print(f"Error Deleting {f}: {e.strerror}")
 
 def clean_class_folder():
-    files = glob.glob('HTML/class/*.html')
+    files = glob.glob(f'{outDir}/class/*.html')
     for f in files:
         try:
             os.remove(f)
@@ -256,7 +258,7 @@ def clean_class_folder():
 # Create by class html
 def create_class_html_files(classRuns, entries):
     for c, runs in classRuns.items():
-        outFile = open(f"HTML/class/C-{c}.html", "w")
+        outFile = open(f"{outDir}/class/C-{c}.html", "w")
         outFile.write(htmlHeader)
         carRuns = """<table class="table table-striped table-hover">
                         <thead>
@@ -303,7 +305,39 @@ def create_class_html_files(classRuns, entries):
         outFile.close()
 
 
-# TODO Update AWS Bucket using ENV Secretes
+# Update AWS Bucket using the AWS CLI
+def trigger_s3_upload():
+    cmd = f'aws s3 sync s3://source-bucket/ {config.outDir}'
+    os.system(cmd)
+
+def check_for_update(event):
+    try:
+        timeFile = open("lastupdate.txt", "r")
+        contents = timeFile.read()
+        timeFile.close()
+    except FileNotFoundError:
+        contents = "None:00000"
+    try:
+        eventFile, time = contents.split(":")
+    except ValueError:
+        eventFile = "None"
+        time = 000000
+    if event != eventFile:
+        timeFile = open("lastupdate.txt", "w+")
+        timeFile.write(event + ":" + str(os.path.getmtime(fileLocation + "/" + event + "Ex.scdb")))
+        timeFile.close()
+        return True
+    
+    if os.path.getmtime(fileLocation + "/" + event + "Ex.scdb") > float(time):
+        timeFile = open("lastupdate.txt", "w+")
+        timeFile.write(event + ":" + str(os.path.getmtime(fileLocation + "/" + event + "Ex.scdb")))
+        timeFile.close()
+        return True
+
+    return False
+
+
+    
 
 if __name__ == '__main__':
     opts = docopt(__doc__, version="1.0")
@@ -314,44 +348,50 @@ if __name__ == '__main__':
         pick = opts.get('--event')
     event = pick_event(eventList, pick)
     if event:
-        eventFile = fileLocation + "/" + event + ".scdb"
-        timesFile = fileLocation + "/" + event + "Ex.scdb"
-        eventInfo = get_event_info(eventFile)
-        eventInfo['DATE'] = getDate(eventInfo.get('DATE'))
-        entries = get_competitors_list(eventFile)
-        #print(eventInfo)
-        #print(entries)
-        heatRuns, carRuns = get_heatlist_and_times(timesFile)
-        clean_heat_folder()
-        clean_class_folder()
-        for heat, runset in heatRuns:
-            if len(runset):
-                #print(runset)
-                create_heat_html_files(heat, runset, entries)
-        
-        byClass = defaultdict(list)
-        runsByClass = defaultdict(list)
+        if check_for_update(event):
+            eventFile = fileLocation + "/" + event + ".scdb"
+            timesFile = fileLocation + "/" + event + "Ex.scdb"
+            eventInfo = get_event_info(eventFile)
+            eventInfo['DATE'] = getDate(eventInfo.get('DATE'))
+            entries = get_competitors_list(eventFile)
+            #print(eventInfo)
+            #print(entries)
+            heatRuns, carRuns = get_heatlist_and_times(timesFile)
+            clean_heat_folder()
+            clean_class_folder()
+            for heat, runset in heatRuns:
+                if len(runset):
+                    #print(runset)
+                    create_heat_html_files(heat, runset, entries)
+            
+            byClass = defaultdict(list)
+            runsByClass = defaultdict(list)
 
-        for car in entries:
-            allRuns = carRuns.get(car)
-            if allRuns:
-                #allRuns.sort(key=lambda x: x.get("TIME"))
-                min = None
-                justTimes = [x.get("TIME") for x in allRuns]
-                for time in justTimes:
-                    if time and (min is None or time < min):
-                        min = time
-                entries[car]['BEST'] = min
-                minute, seconds = divmod(min.seconds, 60)
-                seconds += min.microseconds / 1e6
-                entries[car]['BESTSTR'] = f"{minute:02d}:{seconds:02.3f}"
-                
-                cClass = entries[car]['CLASS']
-                heatTimes = {}
-                for run in allRuns:
-                    heatTimes[run["HEAT"]] =  [run["STRTIME"], run["STATUS"], run["PENALTY"]]
-                runsByClass[cClass].append([car, heatTimes, entries[car]['BESTSTR']])
-                #print(allRuns)
-                
-        create_class_html_files(runsByClass, entries)
-        create_homepage(list(entries.values()), eventInfo)
+            for car in entries:
+                allRuns = carRuns.get(car)
+                if allRuns:
+                    #allRuns.sort(key=lambda x: x.get("TIME"))
+                    min = None
+                    justTimes = [x.get("TIME") for x in allRuns]
+                    for time in justTimes:
+                        if time and (min is None or time < min):
+                            min = time
+                    entries[car]['BEST'] = min
+                    minute, seconds = divmod(min.seconds, 60)
+                    seconds += min.microseconds / 1e6
+                    entries[car]['BESTSTR'] = f"{minute:02d}:{seconds:02.3f}"
+                    
+                    cClass = entries[car]['CLASS']
+                    heatTimes = {}
+                    for run in allRuns:
+                        heatTimes[run["HEAT"]] =  [run["STRTIME"], run["STATUS"], run["PENALTY"]]
+                    runsByClass[cClass].append([car, heatTimes, entries[car]['BESTSTR']])
+                    #print(allRuns)
+                    
+            create_class_html_files(runsByClass, entries)
+            create_homepage(list(entries.values()), eventInfo)
+            trigger_s3_upload
+
+
+#save last update time from file
+#compare every 1:00
