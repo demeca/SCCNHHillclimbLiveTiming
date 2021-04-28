@@ -127,7 +127,7 @@ def get_heatlist_and_times(eventSQLFile):
             min, seconds = divmod(time.seconds, 60)
             seconds += time.microseconds / 1e6
             stringTime = f"{min:02d}:{seconds:06.3f}"
-    #print("Heat", heatNum, "| Car", row[0], "| TIME:", min, ":", seconds, "| raw", row[1]/1000)
+            #print("Heat", heatNum, "| Car", row[0], "| TIME:", min, ":", seconds, "| raw", row[1]/1000)
             run['HEAT'] = heatNum
             run['NUM'] = row[0]
             run['TIME'] = time
@@ -206,8 +206,8 @@ def create_homepage(entries, eventInfo):
 def create_heat_html_files(heatNum, runs, entries):
     runTable = f"""
     <h2>Heat {heatNum} Runs</h2>
-    <p>Go to the class page to see all your runs and to see
-    your times ranked against others in your class.
+    <p>Go to the class page to see all your runs and to see 
+    your times ranked against others in your class. 
     The results below are ordered by car number.
     </p>
     <table class="table table-striped table-hover">
