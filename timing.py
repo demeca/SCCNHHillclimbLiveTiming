@@ -323,11 +323,10 @@ def trigger_s3_upload():
     cmd = config["AWSCommand"]
     print("Running:", cmd)
     result = os.system(cmd)
-    print(result)
     if result == 0:
         print("Upload Success")
     else:
-        print("Upload Error")
+        print("Upload Error:", result)
 
 def check_for_update(event):
     try:
