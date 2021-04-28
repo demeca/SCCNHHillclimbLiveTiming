@@ -206,7 +206,7 @@ def create_heat_html_files(heatNum, runs, entries):
     runTable = f"""
     <h2>Heat {heatNum} Runs</h2>
     <p>Go to the class page to see all your runs and to see
-    your times ranked against other in your class.
+    your times ranked against others in your class.
     The results below are ordered by car number.
     </p>
     <table class="table table-striped table-hover">
@@ -420,4 +420,3 @@ if __name__ == '__main__':
             create_homepage(list(entries.values()), eventInfo)
             print("Data processed")
             trigger_s3_upload()
-
