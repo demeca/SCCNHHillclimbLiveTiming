@@ -25,7 +25,9 @@ from dateutil import parser
 # Get info from enviroment
 
 fileLocation = config.get("eventPath")
+print("Event File Location Set:", fileLocation)
 outDir = config.get("outDir")
+print("Output Directory Set:", outDir)
 # Get file list from directory
 fileList = os.listdir(fileLocation)
 # Events have predictable filenames in our software
@@ -37,10 +39,10 @@ eventList = list(set(eventList))
 eventList.sort()
 
 #get header and footer
-headFile = open(f"{outDir}/basehtmlHeader.html", "r")
+headFile = open(f'{outDir}/basehtmlHeader.html', 'r')
 htmlHeader = headFile.read()
 headFile.close()
-footFile = open(f"{outDir}/basehtmlfooter.html", "r")
+footFile = open(f'{outDir}/basehtmlfooter.html', 'r')
 htmlFooter = footFile.read()
 footFile.close()
 
@@ -63,11 +65,15 @@ def get_event_info(eventSQLFile):
     # Open DB read-only
     sqlPath = 'file:' + eventSQLFile + '?mode=ro'
     con = sqlite3.connect(sqlPath, uri=True)
+    if con:
+        print("Event Connected")
     cur = con.cursor()
     eventInfo = {}
     for row in cur.execute("""SELECT C_PARAM, C_VALUE FROM "main"."TPARAMETERS" WHERE "C_PARAM" = 'LOCATION' OR "C_PARAM" = 'DATE' OR "C_PARAM" = 'TITLE1' OR "C_PARAM" = 'TITLE2' OR "C_PARAM" = 'TIMING_BY' OR "C_PARAM" = 'TIME_ACCURACY'"""):
         eventInfo[row[0]] = row[1]
     con.close()
+    if not eventInfo:
+        print("Event Info Not Found")
     return eventInfo
 
 # Get Event Date
@@ -119,7 +125,7 @@ def get_heatlist_and_times(eventSQLFile):
             time = timedelta(seconds=row[1]/1000)
             min, seconds = divmod(time.seconds, 60)
             seconds += time.microseconds / 1e6
-            stringTime = f"{min:02d}:{seconds:02.3f}"
+            stringTime = f"{min:02d}:{seconds:06.3f}"
     #print("Heat", heatNum, "| Car", row[0], "| TIME:", min, ":", seconds, "| raw", row[1]/1000)
             run['HEAT'] = heatNum
             run['NUM'] = row[0]
@@ -188,7 +194,7 @@ def create_homepage(entries, eventInfo):
     
     heatList +="</tbody></table>"
     #output file
-    outFile = open(f"{outDir}/index.html", "w")
+    outFile = open(f"{outDir}/index.htm", "w")
     outFile.write(htmlHeader)
     outFile.write(heatList)
     outFile.write(htmlFooter)
@@ -199,6 +205,10 @@ def create_homepage(entries, eventInfo):
 def create_heat_html_files(heatNum, runs, entries):
     runTable = f"""
     <h2>Heat {heatNum} Runs</h2>
+    <p>Go to the class page to see all your runs and to see
+    your times ranked against other in your class.
+    The results below are ordered by car number.
+    </p>
     <table class="table table-striped table-hover">
         <thead>
         <tr>
@@ -289,7 +299,7 @@ def create_class_html_files(classRuns, entries):
             for h, t in run[1].items():
                 if count % 5 == 0:
                     carRuns += "</tr><tr>"
-                if t == run[2]:
+                if t[0] == run[2]:
                     carRuns += f"<td><b>{h}: {t[0]}</b>"
                 else:
                     carRuns += f"<td>{h}: {t[0]}"
@@ -310,8 +320,13 @@ def create_class_html_files(classRuns, entries):
 # Update AWS Bucket using the AWS CLI
 def trigger_s3_upload():
     cmd = config["AWSCommand"]
-    os.system(cmd)
-    # TODO provide feedback of command state
+    print("Running:", cmd)
+    result = os.system(cmd)
+    print(result)
+    if result == 0:
+        print("Upload Success")
+    else:
+        print("Upload Error")
 
 def check_for_update(event):
     try:
@@ -360,6 +375,7 @@ if __name__ == '__main__':
     if not event:
         event = pick_event(eventList, pick)
     if event:
+        print("Event Found")
         if check_for_update(event) or opts.get('--force'):
             eventFile = fileLocation + "/" + event + ".scdb"
             timesFile = fileLocation + "/" + event + "Ex.scdb"
@@ -391,7 +407,7 @@ if __name__ == '__main__':
                     entries[car]['BEST'] = min
                     minute, seconds = divmod(min.seconds, 60)
                     seconds += min.microseconds / 1e6
-                    entries[car]['BESTSTR'] = f"{minute:02d}:{seconds:02.3f}"
+                    entries[car]['BESTSTR'] = f"{minute:02d}:{seconds:06.3f}"
                     
                     cClass = entries[car]['CLASS']
                     heatTimes = {}
@@ -402,5 +418,6 @@ if __name__ == '__main__':
                     
             create_class_html_files(runsByClass, entries)
             create_homepage(list(entries.values()), eventInfo)
-            trigger_s3_upload
+            print("Data processed")
+            trigger_s3_upload()
 

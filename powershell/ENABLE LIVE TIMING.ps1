@@ -1,0 +1,1 @@
+Enable-ScheduledTask -TaskName "Hillclimb Live"

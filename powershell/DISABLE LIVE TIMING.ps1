@@ -1,0 +1,1 @@
+Disable-ScheduledTask -TaskName "Hillclimb Live"
