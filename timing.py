@@ -22,8 +22,9 @@ from datetime import date, timedelta, time, datetime
 from docopt import docopt
 from dateutil import parser
 
-# Get info from enviroment
+# TODO Create output folder directories if they don't exist
 
+# Get info from enviroment
 fileLocation = config.get("eventPath")
 print("Event File Location Set:", fileLocation)
 outDir = config.get("outDir")
@@ -420,3 +421,5 @@ if __name__ == '__main__':
             create_homepage(list(entries.values()), eventInfo)
             print("Data processed")
             trigger_s3_upload()
+        else:
+            print("No update needed, use -f or --force to force an update")
